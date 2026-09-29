@@ -1,0 +1,1990 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plants vs Zombies: Math Conquest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Fredoka', cursive, sans-serif;
+            user-select: none;
+        }
+        body {
+            background: #0d130e;
+            overflow: hidden;
+        }
+        .wood-panel {
+            background: linear-gradient(135deg, #613313, #381a07);
+            border: 4px solid #230d02;
+            box-shadow: inset 0 0 12px rgba(0,0,0,0.8), 0 8px 16px rgba(0,0,0,0.6);
+            border-radius: 14px;
+        }
+        @keyframes pulse-btn {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.04); }
+        }
+        .pulse-btn {
+            animation: pulse-btn 2s infinite;
+        }
+        @keyframes wrong-shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .shake-err {
+            animation: wrong-shake 0.4s ease-in-out;
+        }
+        /* Custom scrollbar for HUD panels */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #78350f; border-radius: 4px; }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between p-2 sm:p-4 text-white overflow-hidden relative">
+
+    <!-- Top HUD Banner -->
+    <div class="w-full max-w-6xl mx-auto flex justify-between items-center z-10 px-1 gap-2">
+        <!-- Level & Score -->
+        <div class="wood-panel px-3 py-1.5 sm:px-4 sm:py-2 flex items-center space-x-3 border-2 border-amber-600">
+            <div>
+                <span class="text-[10px] sm:text-xs text-yellow-300 font-bold block uppercase tracking-wider">Nivel</span>
+                <span id="hud-level" class="text-xl sm:text-2xl font-black text-yellow-100">1 / 15</span>
+            </div>
+            <div class="h-8 w-0.5 bg-amber-900/80"></div>
+            <div>
+                <span class="text-[10px] sm:text-xs text-yellow-300 font-bold block uppercase tracking-wider">Puntos</span>
+                <span id="hud-score" class="text-xl sm:text-2xl font-black text-yellow-100">0</span>
+            </div>
+        </div>
+
+        <!-- Level Title & Environment Info -->
+        <div class="hidden md:flex wood-panel px-5 py-2 text-center border-2 border-amber-600 flex-1 mx-3 flex-col justify-center">
+            <div class="flex items-center justify-center space-x-2">
+                <span id="hud-env-badge" class="bg-amber-950 text-yellow-300 text-[10px] px-2 py-0.5 rounded border border-amber-600 uppercase font-black tracking-widest">Jardín</span>
+                <h1 id="hud-level-title" class="text-base sm:text-lg font-bold text-yellow-200 truncate">Suma Homogénea</h1>
+            </div>
+            <p id="hud-level-subtitle" class="text-xs text-yellow-100/80 truncate">Aprende a sumar fracciones con el mismo denominador</p>
+        </div>
+
+        <!-- Wave Progress Bar & Audio Control -->
+        <div class="wood-panel px-3 py-1.5 sm:px-4 sm:py-2 flex items-center space-x-3 border-2 border-amber-600">
+            <button id="btn-music-toggle" title="Música On/Off" class="bg-amber-950 hover:bg-amber-900 border border-amber-600 rounded-lg p-1.5 text-yellow-300 text-lg flex items-center justify-center transition active:scale-95">
+                <span id="music-icon">🎵</span>
+            </button>
+            <div class="w-24 sm:w-36">
+                <div class="flex justify-between text-[10px] sm:text-xs text-yellow-200 font-bold mb-1">
+                    <span>Oleada</span>
+                    <span id="hud-progress-text">0/8</span>
+                </div>
+                <div class="w-full bg-amber-950 h-3 rounded-full overflow-hidden border border-amber-800">
+                    <div id="hud-progress-bar" class="bg-gradient-to-r from-green-500 via-emerald-400 to-yellow-300 h-full w-0% transition-all duration-300"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Lawn Battle Area -->
+    <div class="relative w-full max-w-6xl mx-auto flex-1 my-2 rounded-2xl overflow-hidden border-4 border-amber-900 shadow-2xl flex flex-col justify-center">
+        <!-- Canvas for Dynamic Lawn Environments, Plants, Zombies, Peas & Boss Effects -->
+        <canvas id="gameCanvas" class="w-full h-full block relative z-10"></canvas>
+
+        <!-- Boss Health Bar Overlay -->
+        <div id="boss-health-container" class="absolute top-3 left-1/2 -translate-x-1/2 w-3/4 max-w-md hidden z-20 wood-panel p-2.5 border-2 border-red-600 shadow-2xl">
+            <div class="flex justify-between text-xs text-red-200 font-bold mb-1">
+                <span class="text-red-300 font-black tracking-wide">¡MECA-ROBOT DR. ZOMBOSS!</span>
+                <span id="boss-hp-text">180 / 180</span>
+            </div>
+            <div class="w-full bg-red-950 h-4 rounded-full overflow-hidden border border-red-700">
+                <div id="boss-hp-bar" class="bg-gradient-to-r from-red-600 via-amber-500 to-yellow-300 h-full w-full transition-all duration-200"></div>
+            </div>
+            <div class="text-[10px] text-yellow-300/90 text-center mt-1 font-semibold">
+                ¡Responde bien para empujar al Robot y regenerar una planta aleatoria!
+            </div>
+        </div>
+    </div>
+
+    <!-- Math Answer & Controls Panel -->
+    <div id="controls-panel" class="w-full max-w-6xl mx-auto wood-panel p-2.5 sm:p-3.5 z-10 flex flex-col md:flex-row items-center justify-between gap-3 border-2 border-amber-700 transition-all">
+        
+        <!-- Math Problem Display -->
+        <div class="flex items-center space-x-3 bg-amber-950/80 px-4 sm:px-6 py-2 rounded-xl border border-amber-800 w-full md:w-auto justify-center">
+            <span class="text-yellow-400 font-bold text-xs sm:text-sm hidden sm:inline tracking-wide">OPERACIÓN:</span>
+            <div id="math-problem-container" class="flex items-center space-x-1 sm:space-x-2 text-xl sm:text-2xl font-black text-yellow-100 min-h-[54px] py-1">
+                <!-- Dynamic Problem rendered vertically here -->
+            </div>
+        </div>
+
+        <!-- Player Input Area -->
+        <div class="flex items-center space-x-3 w-full md:w-auto justify-center">
+            <div class="flex items-center space-x-2">
+                <!-- Fraction Input Box -->
+                <div id="input-fraction-container" class="flex flex-col items-center justify-center">
+                    <input type="number" id="input-num" placeholder="Num" class="w-16 h-9 text-center text-lg font-bold bg-amber-950 border-2 border-yellow-500 rounded-lg text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-400">
+                    <div class="w-16 h-1 bg-yellow-400 my-0.5 rounded"></div>
+                    <input type="number" id="input-den" placeholder="Den" class="w-16 h-9 text-center text-lg font-bold bg-amber-950 border-2 border-yellow-500 rounded-lg text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-400">
+                </div>
+            </div>
+
+            <button id="btn-submit" class="pulse-btn bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 active:scale-95 text-white font-extrabold px-6 py-3 rounded-xl shadow-lg border-2 border-green-300 text-lg transition duration-150 flex items-center space-x-2">
+                <span>¡DISPARAR!</span>
+                <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M2 12l18-9-5 9 5 9-18-9z"/></svg>
+            </button>
+        </div>
+
+        <!-- Helper Text -->
+        <div class="text-xs text-yellow-200/80 text-center md:text-right hidden lg:block max-w-xs">
+            <p id="helper-text">¡Responde correctamente para lanzar ataques y proteger el césped!</p>
+        </div>
+    </div>
+
+    <!-- Dialogue Story Modal -->
+    <div id="story-modal" class="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4">
+        <div class="wood-panel max-w-2xl w-full p-5 sm:p-6 border-4 border-amber-600 flex flex-col md:flex-row items-center gap-6 relative shadow-2xl">
+            <!-- Character Avatar Box -->
+            <div class="flex-shrink-0 w-32 h-32 md:w-40 md:h-40 rounded-2xl bg-amber-950 border-4 border-yellow-500 flex items-center justify-center p-2 relative overflow-hidden shadow-inner">
+                <svg id="story-avatar" class="w-full h-full" viewBox="0 0 100 100"></svg>
+            </div>
+
+            <!-- Speech & Details -->
+            <div class="flex-1 text-center md:text-left">
+                <div class="flex justify-between items-center mb-2">
+                    <span id="story-speaker-name" class="text-xl font-black text-yellow-400 uppercase tracking-wider">Pepe Loco</span>
+                    <span id="story-level-badge" class="bg-amber-950 text-yellow-300 text-xs px-2.5 py-1 rounded-full border border-amber-600 font-bold">Nivel 1</span>
+                </div>
+                
+                <div class="bg-amber-950/80 p-4 rounded-xl border border-amber-800 text-yellow-100 min-h-[95px] flex items-center mb-4">
+                    <p id="story-text" class="text-sm sm:text-base leading-relaxed font-medium">
+                        ¡Raaaaaawwrgh! ¡Hola, vecino!
+                    </p>
+                </div>
+
+                <button id="story-next-btn" class="w-full md:w-auto bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-amber-950 font-black px-8 py-3 rounded-xl border-2 border-yellow-300 text-lg shadow-lg active:scale-95 transition">
+                    ¡A LA BATALLA!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="fixed inset-0 bg-red-950/90 z-50 flex items-center justify-center p-4 hidden">
+        <div class="wood-panel max-w-md w-full p-6 text-center border-4 border-red-600 shadow-2xl">
+            <h2 class="text-2xl sm:text-3xl font-black text-red-400 mb-2">¡UN ZOMBI LLEGÓ AL FINAL DEL CAMPO!</h2>
+            <p class="text-yellow-200 text-sm mb-6">¡Los zombis lograron cruzar todo tu césped! Revisa tus cálculos e inténtalo de nuevo.</p>
+            <button id="btn-restart-level" class="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-500 hover:to-orange-400 text-white font-black py-3 rounded-xl border-2 border-yellow-400 text-lg shadow-lg">
+                REINTENTAR NIVEL
+            </button>
+        </div>
+    </div>
+
+    <!-- Victory Game Modal -->
+    <div id="game-win-modal" class="fixed inset-0 bg-emerald-950/90 z-50 flex items-center justify-center p-4 hidden overflow-y-auto">
+        <div class="wood-panel max-w-lg w-full p-5 sm:p-6 text-center border-4 border-emerald-500 shadow-2xl my-auto">
+            <h2 class="text-2xl sm:text-3xl font-black text-yellow-300 mb-1">¡CONQUISTA MATEMÁTICA TOTAL!</h2>
+            <p class="text-yellow-100 text-xs sm:text-sm mb-3">¡Has conquistado los 15 campos de batalla, dominado las 4 operaciones de fracciones y destruido el Meca-Robot del Dr. Zomboss!</p>
+            
+            <!-- Final Score Banner -->
+            <div class="bg-amber-950/90 border-2 border-yellow-500 rounded-xl p-3 mb-4 text-center shadow-inner flex items-center justify-between px-6">
+                <span class="text-xs uppercase tracking-widest text-yellow-300 font-bold block">Puntuación Final</span>
+                <span id="win-final-score" class="text-3xl sm:text-4xl font-black text-emerald-400">0</span>
+            </div>
+
+            <!-- Submit Score Section -->
+            <div id="submit-score-container" class="mb-4 bg-emerald-950/70 p-3 rounded-xl border border-emerald-700/80">
+                <p class="text-xs text-yellow-200 font-semibold mb-2 text-left">¡Ingresa tu nombre para registrar tu marca en el Salón de la Fama!</p>
+                <div class="flex items-center space-x-2">
+                    <input type="text" id="player-name-input" placeholder="Tu Nombre o Apodo" maxlength="18" class="flex-1 bg-amber-950 border-2 border-yellow-500 rounded-lg px-3 py-2 text-sm text-yellow-100 font-bold focus:outline-none focus:ring-2 focus:ring-yellow-400">
+                    <button id="btn-submit-score" class="bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-amber-950 font-extrabold px-4 py-2 rounded-lg text-sm border border-yellow-300 shadow transition active:scale-95 whitespace-nowrap">
+                        Guardar
+                    </button>
+                </div>
+                <div id="score-submitted-msg" class="hidden text-xs text-green-300 font-bold mt-2 text-left">
+                    ¡Puntuación registrada exitosamente! 🎉
+                </div>
+            </div>
+
+            <!-- Leaderboard Table -->
+            <div class="mb-4 text-left">
+                <h3 class="text-xs font-extrabold text-yellow-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>🏆 Tabla de Mejores Puntuaciones</span>
+                    <span class="text-[10px] text-yellow-200/70 font-normal">Top 10 Global</span>
+                </h3>
+                <div class="bg-amber-950/80 rounded-xl border border-amber-800 p-2 max-h-48 overflow-y-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead>
+                            <tr class="border-b border-amber-800 text-yellow-400 font-bold">
+                                <th class="pb-1 pl-2">#</th>
+                                <th class="pb-1">Jugador</th>
+                                <th class="pb-1 text-right pr-2">Puntos</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-table-body" class="divide-y divide-amber-900/50 text-yellow-100 font-medium">
+                            <tr>
+                                <td colspan="3" class="text-center py-3 text-yellow-300/60">Cargando puntuaciones...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <button id="btn-restart-game" class="w-full bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 text-amber-950 font-black py-3 rounded-xl border-2 border-yellow-200 text-lg shadow-lg">
+                JUGAR DE NUEVO
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let db = null;
+        let auth = null;
+        let user = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'pvz-math-conquest';
+
+        // Local fallback storage in case network/firebase is unavailable
+        let localLeaderboard = [
+            { name: "Pepe Loco", score: 3200 },
+            { name: "Girasol Pro", score: 2800 },
+            { name: "Lanzaguisantes", score: 2400 },
+            { name: "Nuez Blindada", score: 1900 },
+            { name: "Girasol Solitario", score: 1200 }
+        ];
+
+        async function initFirebase() {
+            try {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    user = auth.currentUser;
+                }
+            } catch (e) {
+                console.warn("Firebase fallback active:", e);
+            }
+        }
+
+        window.LeaderboardService = {
+            init: initFirebase,
+            
+            listenLeaderboard: (renderCallback) => {
+                if (!db) {
+                    localLeaderboard.sort((a, b) => b.score - a.score);
+                    renderCallback(localLeaderboard.slice(0, 10));
+                    return;
+                }
+
+                try {
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                    onSnapshot(colRef, (snapshot) => {
+                        let scores = [];
+                        snapshot.forEach(doc => {
+                            scores.push({ id: doc.id, ...doc.data() });
+                        });
+                        scores.sort((a, b) => b.score - a.score);
+                        renderCallback(scores.slice(0, 10));
+                    }, (err) => {
+                        console.error("Leaderboard fetch error:", err);
+                        localLeaderboard.sort((a, b) => b.score - a.score);
+                        renderCallback(localLeaderboard.slice(0, 10));
+                    });
+                } catch(e) {
+                    localLeaderboard.sort((a, b) => b.score - a.score);
+                    renderCallback(localLeaderboard.slice(0, 10));
+                }
+            },
+
+            submitScore: async (name, score) => {
+                const entry = {
+                    name: name.trim() || 'Jugador Anónimo',
+                    score: Number(score) || 0,
+                    timestamp: Date.now(),
+                    userId: user?.uid || 'anon'
+                };
+
+                localLeaderboard.push(entry);
+
+                if (db && user) {
+                    try {
+                        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                        await addDoc(colRef, entry);
+                        return true;
+                    } catch(e) {
+                        console.error("Score submit error:", e);
+                    }
+                }
+                return true;
+            }
+        };
+
+        window.LeaderboardService.init();
+    </script>
+
+    <script>
+        class BGMPlayer {
+            constructor(audioCtx) {
+                this.ctx = audioCtx;
+                this.isPlaying = false;
+                this.isMuted = false;
+                this.step = 0;
+                this.timer = null;
+                
+                this.bpm = 118;
+                this.stepTime = (60 / this.bpm) / 4; // 16th notes
+                
+                this.notes = {
+                    'E2': 82.41, 'F2': 87.31, 'G2': 98.00, 'G#2': 103.83, 'A2': 110.00, 'B2': 123.47,
+                    'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'G#3': 207.65,
+                    'A3': 220.00, 'B3': 246.94, 'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23,
+                    'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00, 'B4': 493.88, 'C5': 523.25,
+                    'D5': 587.33, 'E5': 659.25
+                };
+
+                // Iconic PVZ bouncy staccato bassline
+                this.bassLine = [
+                    'A2', null, 'A2', null, 'C3', null, 'E3', null,
+                    'G2', null, 'G2', null, 'B2', null, 'D3', null,
+                    'F2', null, 'F2', null, 'A2', null, 'C3', null,
+                    'E2', null, 'E2', null, 'G#2', null, 'B2', null
+                ];
+
+                // Catchy PVZ Grasswalk style lead melody
+                this.melodyLine = [
+                    'E4', null, 'A4', null, 'C5', 'B4', 'A4', null,
+                    'D4', null, 'G4', null, 'B4', 'A4', 'G4', null,
+                    'C4', null, 'F4', null, 'A4', 'G4', 'F4', null,
+                    'E4', 'E4', 'G#4', 'B4', 'E5', null, null, null
+                ];
+            }
+
+            start(ctx) {
+                if (ctx) this.ctx = ctx;
+                if (!this.ctx) return;
+                if (this.isPlaying) return;
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+                this.isPlaying = true;
+                this.step = 0;
+                this.schedule();
+            }
+
+            stop() {
+                this.isPlaying = false;
+                if (this.timer) clearTimeout(this.timer);
+            }
+
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                return this.isMuted;
+            }
+
+            schedule() {
+                if (!this.isPlaying) return;
+                
+                if (!this.isMuted && this.ctx && this.ctx.state === 'running') {
+                    const now = this.ctx.currentTime;
+                    
+                    // Bass tone
+                    const bassNote = this.bassLine[this.step % this.bassLine.length];
+                    if (bassNote && this.notes[bassNote]) {
+                        this.playTone(this.notes[bassNote], 'triangle', 0.12, 0.11, now);
+                    }
+
+                    // Lead accordion/organ synth tone
+                    const leadNote = this.melodyLine[this.step % this.melodyLine.length];
+                    if (leadNote && this.notes[leadNote]) {
+                        this.playTone(this.notes[leadNote], 'square', 0.06, 0.16, now, true);
+                    }
+                }
+
+                this.step++;
+                this.timer = setTimeout(() => this.schedule(), this.stepTime * 1000);
+            }
+
+            playTone(freq, type, gainValue, duration, startTime, isLead = false) {
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, startTime);
+                    
+                    gain.gain.setValueAtTime(gainValue, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + duration);
+                } catch(e) {}
+            }
+        }
+
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.bgm = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.bgm = new BGMPlayer(this.ctx);
+                }
+            }
+
+            startBGM() {
+                this.init();
+                if (this.bgm) this.bgm.start(this.ctx);
+            }
+
+            toggleBGM() {
+                this.init();
+                if (this.bgm) {
+                    if (!this.bgm.isPlaying) {
+                        this.bgm.start(this.ctx);
+                        return false;
+                    }
+                    return this.bgm.toggleMute();
+                }
+                return true;
+            }
+
+            playShoot() {
+                this.init();
+                this.startBGM();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(480, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playCorrect() {
+                this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.07);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.07 + 0.12);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.07);
+                    osc.stop(this.ctx.currentTime + idx * 0.07 + 0.12);
+                });
+            }
+
+            playWrong() {
+                this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(90, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playHit() {
+                this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            playCrush() {
+                this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(20, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playChomp() {
+                this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        const LEVELS = [
+            {
+                level: 1,
+                env: 'jardin',
+                envName: 'Jardín de Pepe',
+                title: 'Suma de Fracciones Homogéneas',
+                subtitle: 'Mismo denominador: solo suma los numeradores (8 Zombis)',
+                targetDefeats: 8,
+                zombieSpeedMult: 0.3,
+                spawnRate: 360,
+                types: ['basic'],
+                mathType: 'add_homo',
+                introSpeaker: 'pepe',
+                introText: "¡Raaaawwrgh! ¡Bienvenido a mi Jardín Clásico, vecino! Para derrotar a estos zombis lentos, suma fracciones con el mismo denominador. ¡Solo suma los numeradores!",
+                outroSpeaker: 'pepe',
+                outroText: "¡Excelente comienzo! Mantuviste el césped impecable."
+            },
+            {
+                level: 2,
+                env: 'noche',
+                envName: 'Jardín Nocturno',
+                title: 'Resta de Fracciones Homogéneas',
+                subtitle: 'Mismo denominador: resta los numeradores (9 Zombis)',
+                targetDefeats: 9,
+                zombieSpeedMult: 0.35,
+                spawnRate: 340,
+                types: ['basic', 'cone'],
+                mathType: 'sub_homo',
+                introSpeaker: 'pepe',
+                introText: "¡Cae la noche y salen hongos fluorescentes! Ahora restamos fracciones homogéneas: mantén el denominador y resta los numeradores.",
+                outroSpeaker: 'zomboss',
+                outroText: "¡Grrr! Mis zombis nocturnos no pudieron contra tus hongos luminosos..."
+            },
+            {
+                level: 3,
+                env: 'piscina',
+                envName: 'La Piscina',
+                title: 'Suma con Denominadores Múltiples',
+                subtitle: 'Convierte el denominador menor al mayor (9 Zombis)',
+                targetDefeats: 9,
+                zombieSpeedMult: 0.4,
+                spawnRate: 320,
+                types: ['basic', 'cone', 'flying'],
+                mathType: 'add_mult',
+                introSpeaker: 'pepe',
+                introText: "¡Al agua, patos! En el carril de la piscina tus plantas flotan en camalotes. Cuando un denominador es múltiplo del otro, amplifica la fracción menor.",
+                outroSpeaker: 'pepe',
+                outroText: "¡Puntería acuática impecable!"
+            },
+            {
+                level: 4,
+                env: 'desierto',
+                envName: 'El Desierto',
+                title: 'Suma y Resta Heterogénea Simple',
+                subtitle: 'Busca el mínimo común denominador (10 Zombis)',
+                targetDefeats: 10,
+                zombieSpeedMult: 0.45,
+                spawnRate: 300,
+                types: ['basic', 'cone', 'underground'],
+                mathType: 'add_sub_hetero_simple',
+                introSpeaker: 'zomboss',
+                introText: "¡En este desierto abrasador mis zombis mineros saldrán de la arena! ¡Calcula con denominadores diferentes a ver si puedes!",
+                outroSpeaker: 'pepe',
+                outroText: "¡Tus cactus espinosos los hicieron retroceder en la arena!"
+            },
+            {
+                level: 5,
+                env: 'tejado',
+                envName: 'El Tejado',
+                title: 'Multiplicación de Fracciones (×)',
+                subtitle: 'Multiplica numerador por numerador y denominador por denominador (10 Zombis)',
+                targetDefeats: 10,
+                zombieSpeedMult: 0.5,
+                spawnRate: 280,
+                types: ['basic', 'cone', 'bucket', 'explosive'],
+                mathType: 'mul_simple',
+                introSpeaker: 'pepe',
+                introText: "¡Llegamos al tejado! Disparamos catapultezcas. Multiplicar fracciones es facilísimo: (Num × Num) / (Den × Den).",
+                outroSpeaker: 'pepe',
+                outroText: "¡Tiro parabólico perfecto! La multiplicación en el tejado dio sus frutos."
+            },
+            {
+                level: 6,
+                env: 'bunker',
+                envName: 'Búnker Subterráneo',
+                title: 'División de Fracciones (÷)',
+                subtitle: 'Multiplica en cruz: (a/b) ÷ (c/d) = (a×d) / (b×c) (11 Zombis)',
+                targetDefeats: 11,
+                zombieSpeedMult: 0.55,
+                spawnRate: 260,
+                types: ['basic', 'cone', 'bucket', 'explosive'],
+                mathType: 'div_simple',
+                introSpeaker: 'zomboss',
+                introText: "¡Bienvenido a mi búnker blindado! Para dividir fracciones debes multiplicar en cruz. ¡No lo lograrás!",
+                outroSpeaker: 'pepe',
+                outroText: "¡Búnker despejado! Multiplicar en cruz te dio la victoria total."
+            },
+            {
+                level: 7,
+                env: 'colegio',
+                envName: 'El Colegio',
+                title: 'Simplificación a la Mínima Expresión',
+                subtitle: 'Divide numerador y denominador por su m.c.d (11 Zombis)',
+                targetDefeats: 11,
+                zombieSpeedMult: 0.6,
+                spawnRate: 250,
+                types: ['basic', 'cone', 'flying', 'bucket'],
+                mathType: 'simplify',
+                introSpeaker: 'pepe',
+                introText: "¡De vuelta al salón de clases! Si obtienes 4/8, redúcelo dividiendo arriba y abajo hasta obtener 1/2.",
+                outroSpeaker: 'pepe',
+                outroText: "¡Calificación 10/10 en simplificación!"
+            },
+            {
+                level: 8,
+                env: 'laboratorio',
+                envName: 'Laboratorio Secreto',
+                title: 'Conversión de Números Mixtos',
+                subtitle: 'Convierte A (b/c) a Fracción Impropia (12 Zombis)',
+                targetDefeats: 12,
+                zombieSpeedMult: 0.65,
+                spawnRate: 240,
+                types: ['cone', 'bucket', 'explosive', 'underground'],
+                mathType: 'mixed_to_imp',
+                introSpeaker: 'zomboss',
+                introText: "¡En mi laboratorio mutante los números enteros se mezclan con fracciones! ¡Convierte enteros a impropia!",
+                outroSpeaker: 'pepe',
+                outroText: "¡Fórmula: (Entero × Denominador) + Numerador! ¡Experimento exitoso!"
+            },
+            {
+                level: 9,
+                env: 'area51',
+                envName: 'Área 51',
+                title: 'Operaciones Mezcladas: Suma y Multiplicación',
+                subtitle: 'Resuelve la multiplicación antes que la suma (12 Zombis)',
+                targetDefeats: 12,
+                zombieSpeedMult: 0.7,
+                spawnRate: 230,
+                types: ['cone', 'bucket', 'flying', 'explosive'],
+                mathType: 'mix_add_mul',
+                introSpeaker: 'pepe',
+                introText: "¡En el Área 51 combinamos operaciones! Recuerda la jerarquía: ¡La multiplicación (×) se resuelve ANTES que la suma (+)! ",
+                outroSpeaker: 'zomboss',
+                outroText: "¡Mis naves espaciales no fueron rival para tu jerarquía de operaciones!"
+            },
+            {
+                level: 10,
+                env: 'espacio',
+                envName: 'Espacio Exterior',
+                title: 'Operaciones Mezcladas: Resta y División',
+                subtitle: 'Jerarquía: Resuelve la división antes que la resta (12 Zombis)',
+                targetDefeats: 12,
+                zombieSpeedMult: 0.75,
+                spawnRate: 220,
+                types: ['cone', 'bucket', 'flying', 'underground'],
+                mathType: 'mix_sub_div',
+                introSpeaker: 'pepe',
+                introText: "¡Flotando en la galaxia! Resuelve primero la división (÷) y luego la resta (-). ¡Poder cósmico!",
+                outroSpeaker: 'pepe',
+                outroText: "¡Conquista espacial completada!"
+            },
+            {
+                level: 11,
+                env: 'casa_pepe',
+                envName: 'Casa de Pepe',
+                title: 'Operaciones con Paréntesis ( )',
+                subtitle: 'Resuelve primero lo que está dentro del paréntesis (13 Zombis)',
+                targetDefeats: 13,
+                zombieSpeedMult: 0.8,
+                spawnRate: 210,
+                types: ['cone', 'bucket', 'explosive', 'flying'],
+                mathType: 'parenthesis',
+                introSpeaker: 'pepe',
+                introText: "¡Llegaron a mi sala de estar! Cuando veas paréntesis ( ), resuelve siempre esa parte primero.",
+                outroSpeaker: 'zomboss',
+                outroText: "¡Maldición! Salvaron la casa de Pepe..."
+            },
+            {
+                level: 12,
+                env: 'guarida',
+                envName: 'Guarida Zombi',
+                title: 'Multiplicación y División de 3 Fracciones',
+                subtitle: 'Resuelve de izquierda a derecha (13 Zombis)',
+                targetDefeats: 13,
+                zombieSpeedMult: 0.85,
+                spawnRate: 200,
+                types: ['cone', 'bucket', 'underground', 'explosive'],
+                mathType: 'triple_mul_div',
+                introSpeaker: 'zomboss',
+                introText: "¡Estás en mi guarida pantanosa! Tres fracciones seguidas multiplicándose y dividiéndose te desafiarán.",
+                outroSpeaker: 'pepe',
+                outroText: "¡Sorprendente velocidad mental en terreno viscoso!"
+            },
+            {
+                level: 13,
+                env: 'volcan',
+                envName: 'Volcán Ardiente',
+                title: 'Suma y Resta de 3 Fracciones Heterogéneas',
+                subtitle: 'Busca el común denominador para las tres (14 Zombis)',
+                targetDefeats: 14,
+                zombieSpeedMult: 0.9,
+                spawnRate: 190,
+                types: ['cone', 'bucket', 'flying', 'explosive', 'underground'],
+                mathType: 'triple_hetero',
+                introSpeaker: 'pepe',
+                introText: "¡El suelo es lava! Halla el común denominador para las tres fracciones a la vez.",
+                outroSpeaker: 'pepe',
+                outroText: "¡Súper resistencia al fuego y a las fracciones complejas!"
+            },
+            {
+                level: 14,
+                env: 'castillo',
+                envName: 'Castillo Zomboss',
+                title: 'Desafío Integrado de las 4 Operaciones',
+                subtitle: 'Suma, Resta, Multiplicación y División combinadas (15 Zombis)',
+                targetDefeats: 15,
+                zombieSpeedMult: 0.95,
+                spawnRate: 180,
+                types: ['cone', 'bucket', 'flying', 'explosive', 'underground'],
+                mathType: 'four_ops_all',
+                introSpeaker: 'zomboss',
+                introText: "¡Llegaste a las puertas de mi Castillo! Aquí mezclo las 4 operaciones (+, -, ×, ÷). ¡Demuestra lo que sabes!",
+                outroSpeaker: 'pepe',
+                outroText: "¡Increíble! Dominas las 4 operaciones como un genio. ¡Solo queda la batalla final!"
+            },
+            {
+                level: 15,
+                env: 'boss_arena',
+                envName: 'Meca-Arena Final',
+                title: '¡BATALLA FINAL CON EL DR. ZOMBOSS!',
+                subtitle: '¡El Meca-Robot estripará tus plantas y lanzará zombis! ¡Responde bien para empujarlo y regenerar plantas!',
+                targetDefeats: 1,
+                isBoss: true,
+                zombieSpeedMult: 0.25,
+                spawnRate: 180, // Spawns extra zombies from Boss
+                types: ['basic', 'cone', 'bucket', 'flying'],
+                mathType: 'boss_mix',
+                introSpeaker: 'zomboss',
+                introText: "¡JAJAJAJA! ¡SOY EL DR. ZOMBOSS EN MI MECA-ROBOT GIGANTE! Avanzaré estripando tus plantas y tirando zombis. ¡Cada respuesta correcta me empujará hacia atrás y sembrará una nueva planta aleatoria!",
+                outroSpeaker: 'pepe',
+                outroText: "¡LO LOGRASTE, VECINO! ¡Destruiste el Meca-Robot del Dr. Zomboss con tu máximo poder matemático! ¡ERES EL CAMPEÓN SUPREMO DE FRACCIONES!"
+            }
+        ];
+
+        function renderAvatar(speaker) {
+            if (speaker === 'pepe') {
+                return `
+                    <rect width="100" height="100" fill="#2d1a0e"/>
+                    <ellipse cx="50" cy="56" rx="28" ry="30" fill="#fcd34d"/>
+                    <circle cx="40" cy="48" r="7" fill="white" stroke="#333" stroke-width="2"/>
+                    <circle cx="42" cy="48" r="3" fill="black"/>
+                    <circle cx="60" cy="48" r="7" fill="white" stroke="#333" stroke-width="2"/>
+                    <circle cx="62" cy="48" r="3" fill="black"/>
+                    <path d="M 32 65 Q 50 85 68 65" fill="#78350f" stroke="#451a03" stroke-width="2"/>
+                    <path d="M 38 62 Q 50 72 62 62" fill="#f87171"/>
+                    <path d="M 18 35 L 82 35 L 75 18 L 25 18 Z" fill="#9ca3af" stroke="#4b5563" stroke-width="3"/>
+                    <rect x="75" y="24" width="18" height="6" rx="2" fill="#4b5563"/>
+                `;
+            } else {
+                return `
+                    <rect width="100" height="100" fill="#18181b"/>
+                    <ellipse cx="50" cy="58" rx="30" ry="32" fill="#a7f3d0"/>
+                    <path d="M 20 42 C 18 12, 82 12, 80 42 Z" fill="#f43f5e" stroke="#9f1239" stroke-width="3"/>
+                    <path d="M 35 24 Q 50 34 65 24 M 38 16 Q 50 26 62 16" fill="none" stroke="#be123c" stroke-width="2"/>
+                    <circle cx="38" cy="52" r="8" fill="#facc15" stroke="#713f12" stroke-width="2"/>
+                    <circle cx="39" cy="52" r="3" fill="red"/>
+                    <circle cx="62" cy="52" r="8" fill="#facc15" stroke="#713f12" stroke-width="2"/>
+                    <circle cx="63" cy="52" r="3" fill="red"/>
+                    <path d="M 35 72 Q 50 82 65 72" fill="none" stroke="#15803d" stroke-width="3"/>
+                    <polygon points="42,72 45,78 48,72" fill="white"/>
+                    <polygon points="52,72 55,78 58,72" fill="white"/>
+                `;
+            }
+        }
+
+        class MathGenerator {
+            static gcd(a, b) {
+                return b === 0 ? Math.abs(a) : MathGenerator.gcd(b, a % b);
+            }
+
+            static simplify(n, d) {
+                if (d === 0) return { num: 0, den: 1 };
+                if (d < 0) { n = -n; d = -d; }
+                const common = MathGenerator.gcd(n, d);
+                return { num: n / common, den: d / common };
+            }
+
+            // Helper to render stacked vertical fraction HTML
+            static f(num, den, color = "text-green-300") {
+                return `<div class="inline-flex flex-col items-center justify-center align-middle mx-1 font-bold">
+                    <span class="border-b-2 border-yellow-400 px-1.5 text-center leading-none pb-0.5 ${color}">${num}</span>
+                    <span class="px-1.5 text-center leading-none pt-0.5 ${color}">${den}</span>
+                </div>`;
+            }
+
+            static generate(mathType) {
+                if (mathType === 'boss_mix') {
+                    const allTypes = ['mul_simple', 'div_simple', 'simplify', 'mixed_to_imp', 'mix_add_mul', 'mix_sub_div', 'parenthesis', 'triple_mul_div', 'triple_hetero', 'four_ops_all'];
+                    mathType = allTypes[Math.floor(Math.random() * allTypes.length)];
+                }
+
+                const f = MathGenerator.f;
+
+                switch(mathType) {
+                    case 'add_homo': {
+                        const den = [2, 3, 4, 5, 6][Math.floor(Math.random() * 5)];
+                        const num1 = Math.floor(Math.random() * 4) + 1;
+                        const num2 = Math.floor(Math.random() * 4) + 1;
+                        const simple = MathGenerator.simplify(num1 + num2, den);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `${f(num1, den)} <span class="text-yellow-400 mx-1 text-xl sm:text-2xl">+</span> ${f(num2, den)}`
+                        };
+                    }
+                    case 'sub_homo': {
+                        const den = [3, 4, 5, 6, 7][Math.floor(Math.random() * 5)];
+                        let num1 = Math.floor(Math.random() * 5) + 2;
+                        let num2 = Math.floor(Math.random() * (num1 - 1)) + 1;
+                        const simple = MathGenerator.simplify(num1 - num2, den);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `${f(num1, den)} <span class="text-yellow-400 mx-1 text-xl sm:text-2xl">-</span> ${f(num2, den)}`
+                        };
+                    }
+                    case 'add_mult': {
+                        const den1 = [2, 3, 4][Math.floor(Math.random() * 3)];
+                        const mult = [2, 3][Math.floor(Math.random() * 2)];
+                        const den2 = den1 * mult;
+                        const num1 = Math.floor(Math.random() * 3) + 1;
+                        const num2 = Math.floor(Math.random() * 3) + 1;
+                        const simple = MathGenerator.simplify(num1 * mult + num2, den2);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `${f(num1, den1)} <span class="text-yellow-400 mx-1 text-xl sm:text-2xl">+</span> ${f(num2, den2)}`
+                        };
+                    }
+                    case 'add_sub_hetero_simple': {
+                        const den1 = [2, 3, 5][Math.floor(Math.random() * 3)];
+                        let den2 = [3, 4, 7][Math.floor(Math.random() * 3)];
+                        if (den1 === den2) den2 += 1;
+                        let n1 = Math.floor(Math.random() * 3) + 1;
+                        let n2 = Math.floor(Math.random() * 3) + 1;
+                        const op = Math.random() > 0.4 ? '+' : '-';
+                        if (op === '-' && (n1/den1 < n2/den2)) { const tmp = n1; n1 = n2; n2 = tmp; }
+                        const resNum = op === '+' ? (n1 * den2 + n2 * den1) : (n1 * den2 - n2 * den1);
+                        const simple = MathGenerator.simplify(resNum, den1 * den2);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `${f(n1, den1)} <span class="text-yellow-400 mx-1 text-xl sm:text-2xl">${op}</span> ${f(n2, den2)}`
+                        };
+                    }
+                    case 'mul_simple': {
+                        const den1 = [2, 3, 4, 5][Math.floor(Math.random() * 4)];
+                        const den2 = [2, 3, 5, 7][Math.floor(Math.random() * 4)];
+                        const num1 = Math.floor(Math.random() * 3) + 1;
+                        const num2 = Math.floor(Math.random() * 3) + 1;
+                        const simple = MathGenerator.simplify(num1 * num2, den1 * den2);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `${f(num1, den1)} <span class="text-cyan-400 mx-1 text-xl sm:text-2xl">×</span> ${f(num2, den2)}`
+                        };
+                    }
+                    case 'div_simple': {
+                        const den1 = [2, 3, 4, 5][Math.floor(Math.random() * 4)];
+                        const den2 = [2, 3, 4, 5][Math.floor(Math.random() * 4)];
+                        const num1 = Math.floor(Math.random() * 3) + 1;
+                        const num2 = Math.floor(Math.random() * 3) + 1;
+                        const simple = MathGenerator.simplify(num1 * den2, den1 * num2);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `${f(num1, den1)} <span class="text-fuchsia-400 mx-1 text-xl sm:text-2xl">÷</span> ${f(num2, den2)}`
+                        };
+                    }
+                    case 'simplify': {
+                        const mult = Math.floor(Math.random() * 3) + 2;
+                        const baseNum = Math.floor(Math.random() * 3) + 1;
+                        const baseDen = baseNum + Math.floor(Math.random() * 3) + 1;
+                        const simple = MathGenerator.simplify(baseNum, baseDen);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `<span class="text-yellow-300 text-sm sm:text-base mr-1">Simplifica:</span> ${f(baseNum * mult, baseDen * mult)}`
+                        };
+                    }
+                    case 'mixed_to_imp': {
+                        const whole = Math.floor(Math.random() * 3) + 1;
+                        const den = [2, 3, 4, 5][Math.floor(Math.random() * 4)];
+                        const num = Math.floor(Math.random() * (den - 1)) + 1;
+                        const impNum = whole * den + num;
+                        return {
+                            ansNum: impNum, ansDen: den,
+                            text: `<span class="text-yellow-300 text-sm sm:text-base mr-1">A Impropia:</span> <span class="text-green-300 text-2xl font-black mr-1">${whole}</span> ${f(num, den)}`
+                        };
+                    }
+                    case 'mix_add_mul': {
+                        const b = [2, 3][Math.floor(Math.random()*2)];
+                        const d = [2, 3][Math.floor(Math.random()*2)];
+                        const fVal = [2, 3][Math.floor(Math.random()*2)];
+                        const a = Math.floor(Math.random()*2) + 1;
+                        const c = Math.floor(Math.random()*2) + 1;
+                        const e = Math.floor(Math.random()*2) + 1;
+                        const resN = a * d * fVal + c * e * b;
+                        const resD = b * d * fVal;
+                        const simple = MathGenerator.simplify(resN, resD);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `${f(a, b)} <span class="text-yellow-400 mx-1 text-xl sm:text-2xl">+</span> ${f(c, d)} <span class="text-cyan-400 mx-1 text-xl sm:text-2xl">×</span> ${f(e, fVal)}`
+                        };
+                    }
+                    case 'mix_sub_div': {
+                        let b = 2, d = 2, e = 2, fVal = 3;
+                        let a = 3, c = 1;
+                        const mulN = c * fVal;
+                        const mulD = d * e;
+                        let resN = a * mulD - mulN * b;
+                        let resD = b * mulD;
+                        if (resN <= 0) { a = 4; resN = a * mulD - mulN * b; }
+                        const simple = MathGenerator.simplify(resN, resD);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `${f(a, b)} <span class="text-yellow-400 mx-1 text-xl sm:text-2xl">-</span> ${f(c, d)} <span class="text-fuchsia-400 mx-1 text-xl sm:text-2xl">÷</span> ${f(e, fVal)}`
+                        };
+                    }
+                    case 'parenthesis': {
+                        const d = [2, 3, 4][Math.floor(Math.random()*3)];
+                        const a = Math.floor(Math.random()*2) + 1;
+                        const b = Math.floor(Math.random()*2) + 1;
+                        const c = Math.floor(Math.random()*2) + 1;
+                        const e = [2, 3][Math.floor(Math.random()*2)];
+                        const sumN = a + b;
+                        const simple = MathGenerator.simplify(sumN * c, d * e);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `<span class="text-yellow-300 text-2xl sm:text-3xl font-light">(</span>${f(a, d)} <span class="text-yellow-400 mx-0.5 text-xl sm:text-2xl">+</span> ${f(b, d)}<span class="text-yellow-300 text-2xl sm:text-3xl font-light">)</span> <span class="text-cyan-400 mx-1 text-xl sm:text-2xl">×</span> ${f(c, e)}`
+                        };
+                    }
+                    case 'triple_mul_div': {
+                        const a = Math.floor(Math.random()*2)+1, b = 2;
+                        const c = Math.floor(Math.random()*2)+1, d = 3;
+                        const e = Math.floor(Math.random()*2)+1, fVal = [2, 3, 4][Math.floor(Math.random()*3)];
+                        const simple = MathGenerator.simplify(a * c * fVal, b * d * e);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `${f(a, b)} <span class="text-cyan-400 mx-1 text-xl sm:text-2xl">×</span> ${f(c, d)} <span class="text-fuchsia-400 mx-1 text-xl sm:text-2xl">÷</span> ${f(e, fVal)}`
+                        };
+                    }
+                    case 'triple_hetero': {
+                        const a = Math.floor(Math.random()*2) + 1;
+                        const b = Math.floor(Math.random()*2) + 1;
+                        const c = 1;
+                        const resN = 6*a + 4*b - 3*c;
+                        const simple = MathGenerator.simplify(resN, 12);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `${f(a, 2)} <span class="text-yellow-400 mx-1 text-xl sm:text-2xl">+</span> ${f(b, 3)} <span class="text-yellow-400 mx-1 text-xl sm:text-2xl">-</span> ${f(c, 4)}`
+                        };
+                    }
+                    case 'four_ops_all': {
+                        const simple = MathGenerator.simplify(3, 2);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `<span class="text-yellow-300 text-2xl sm:text-3xl font-light">(</span>${f(1, 2)} <span class="text-yellow-400 mx-0.5 text-xl sm:text-2xl">+</span> ${f(1, 2)}<span class="text-yellow-300 text-2xl sm:text-3xl font-light">)</span> <span class="text-cyan-400 mx-1 text-xl sm:text-2xl">×</span> ${f(1, 2)} <span class="text-fuchsia-400 mx-1 text-xl sm:text-2xl">÷</span> ${f(1, 3)}`
+                        };
+                    }
+                    default: {
+                        const den = [2, 3, 4][Math.floor(Math.random() * 3)];
+                        const n1 = Math.floor(Math.random() * 3) + 1;
+                        const n2 = Math.floor(Math.random() * 3) + 1;
+                        const simple = MathGenerator.simplify(n1 + n2, den);
+                        return {
+                            ansNum: simple.num, ansDen: simple.den,
+                            text: `${f(n1, den)} <span class="text-yellow-400 mx-1 text-xl sm:text-2xl">+</span> ${f(n2, den)}`
+                        };
+                    }
+                }
+            }
+        }
+
+        class Plant {
+            constructor(row, col, env = 'jardin') {
+                this.row = row; // 0..2
+                this.col = col; // 0..4
+                this.env = env;
+                this.level = 1;
+                this.animOffset = Math.random() * Math.PI * 2;
+                this.crushed = false;
+                this.hp = 100;
+                this.maxHp = 100;
+            }
+
+            upgrade() {
+                if (this.level < 4) {
+                    this.level++;
+                    this.maxHp += 50;
+                    this.hp = this.maxHp;
+                }
+            }
+
+            draw(ctx, x, y, width, height, time) {
+                if (this.crushed) return;
+                ctx.save();
+                const bob = Math.sin(time * 0.005 + this.animOffset) * 3;
+                ctx.translate(x + width / 2, y + height / 2 + bob);
+
+                // Health Bar overlay when damaged by zombies
+                if (this.hp < this.maxHp) {
+                    const barW = 32;
+                    const barH = 5;
+                    const hpPct = Math.max(0, this.hp / this.maxHp);
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(-barW / 2, -32, barW, barH);
+                    ctx.fillStyle = hpPct > 0.5 ? '#22c55e' : (hpPct > 0.25 ? '#eab308' : '#ef4444');
+                    ctx.fillRect(-barW / 2, -32, barW * hpPct, barH);
+                }
+
+                // Environment-adapted visual styles
+                switch(this.env) {
+                    case 'noche': // Glowing Mushroom
+                        ctx.fillStyle = '#a855f7';
+                        ctx.beginPath();
+                        ctx.arc(0, -5, 18, Math.PI, 0);
+                        ctx.fill();
+                        ctx.fillStyle = '#e879f9';
+                        ctx.beginPath();
+                        ctx.arc(-6, -10, 4, 0, Math.PI*2);
+                        ctx.arc(6, -12, 3, 0, Math.PI*2);
+                        ctx.fill();
+                        ctx.fillStyle = '#f3e8ff';
+                        ctx.fillRect(-5, -5, 10, 22);
+                        break;
+
+                    case 'piscina': // Cattail / Aqua Cannon
+                        ctx.fillStyle = '#06b6d4';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 16, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = '#0284c7';
+                        ctx.fillRect(5, -6, 16, 12);
+                        break;
+
+                    case 'desierto': // Cactus Spike
+                        ctx.fillStyle = '#15803d';
+                        ctx.fillRect(-12, -22, 24, 38);
+                        ctx.fillStyle = '#facc15';
+                        ctx.fillRect(-15, -10, 4, 4);
+                        ctx.fillRect(11, -5, 4, 4);
+                        break;
+
+                    case 'tejado': // Cabbage Launcher
+                        ctx.fillStyle = '#22c55e';
+                        ctx.beginPath();
+                        ctx.arc(0, 4, 18, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = '#86efac';
+                        ctx.beginPath();
+                        ctx.arc(0, -12, 10, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+
+                    case 'area51':
+                    case 'espacio': // Cosmic Laser Plant
+                        ctx.fillStyle = '#ec4899';
+                        ctx.beginPath();
+                        for (let i = 0; i < 5; i++) {
+                            const angle = (i * Math.PI * 2) / 5;
+                            const rx = Math.cos(angle) * 22;
+                            const ry = Math.sin(angle) * 22;
+                            ctx.lineTo(rx, ry);
+                        }
+                        ctx.fill();
+                        ctx.fillStyle = '#38bdf8';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+
+                    default: // Classic Peashooter
+                        ctx.beginPath();
+                        ctx.moveTo(0, 12);
+                        ctx.quadraticCurveTo(-8, 24, -2, 34);
+                        ctx.lineWidth = 5;
+                        ctx.strokeStyle = '#22c55e';
+                        ctx.stroke();
+
+                        ctx.fillStyle = '#15803d';
+                        ctx.beginPath();
+                        ctx.ellipse(-12, 30, 10, 5, -Math.PI / 4, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        let headColor = this.level === 2 ? '#16a34a' : (this.level >= 3 ? '#0284c7' : '#4ade80');
+                        ctx.beginPath();
+                        ctx.arc(-2, -6, 18, 0, Math.PI * 2);
+                        ctx.fillStyle = headColor;
+                        ctx.fill();
+                        ctx.lineWidth = 2.5;
+                        ctx.strokeStyle = '#14532d';
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.rect(6, -12, 16, 12);
+                        ctx.fillStyle = headColor;
+                        ctx.fill();
+                        ctx.stroke();
+                        break;
+                }
+
+                // Eyes
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(2, -8, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(4, -8, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        class Zombie {
+            constructor(row, type, speedMult, canvasWidth) {
+                this.row = row;
+                this.type = type; // basic, cone, bucket, flying, underground, explosive, boss
+                this.x = canvasWidth + 30;
+                this.speed = (0.35 + Math.random() * 0.12) * speedMult;
+                this.hp = 1;
+                this.maxHp = 1;
+                this.isFlying = type === 'flying';
+                this.isUnderground = type === 'underground';
+                this.undergroundTimer = type === 'underground' ? 100 : 0;
+                this.isEating = false;
+
+                if (type === 'cone') { this.hp = 2; this.maxHp = 2; }
+                if (type === 'bucket') { this.hp = 3; this.maxHp = 3; }
+                if (type === 'flying') { this.speed *= 1.25; }
+                if (type === 'explosive') { this.speed *= 1.35; this.hp = 2; this.maxHp = 2; }
+                if (type === 'boss') { 
+                    this.hp = 180; 
+                    this.maxHp = 180; 
+                    this.speed = 0.12; 
+                    this.x = canvasWidth - 140; 
+                    this.attackTimer = 0;
+                }
+            }
+
+            update(canvasWidth) {
+                if (this.type === 'boss') {
+                    this.attackTimer++;
+                    this.x -= this.speed;
+                    return;
+                }
+
+                if (this.isUnderground && this.undergroundTimer > 0) {
+                    this.undergroundTimer--;
+                    return;
+                }
+
+                // If zombie is currently eating a plant, stop moving forward
+                if (!this.isEating) {
+                    this.x -= this.speed;
+                }
+            }
+
+            draw(ctx, laneY, laneHeight, time) {
+                ctx.save();
+                const centerY = laneY + laneHeight / 2;
+                const walkCycle = this.isEating ? Math.sin(time * 0.02) * 2 : Math.sin(time * 0.008 + this.x * 0.05) * 4;
+
+                if (this.type === 'boss') {
+                    const stomp = Math.sin(time * 0.005) * 5;
+                    ctx.translate(this.x, centerY + stomp);
+
+                    // Mech Body Shadow
+                    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 40, 55, 18, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Mech Armor Body
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(-50, -75 + stomp, 100, 105);
+                    ctx.strokeStyle = '#0f172a';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(-50, -75 + stomp, 100, 105);
+
+                    // Mechanical Arms / Claws (Crusher Arms)
+                    ctx.fillStyle = '#64748b';
+                    ctx.fillRect(-70, -30 + stomp, 22, 50);
+                    ctx.fillRect(48, -30 + stomp, 22, 50);
+
+                    // Red Energy Core
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath();
+                    ctx.arc(0, -25 + stomp, 24, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Cockpit & Zomboss Eyes
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(-35, -65 + stomp, 70, 30);
+                    ctx.fillStyle = '#facc15';
+                    ctx.beginPath();
+                    ctx.arc(-15, -50 + stomp, 8, 0, Math.PI * 2);
+                    ctx.arc(15, -50 + stomp, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = 'red';
+                    ctx.beginPath();
+                    ctx.arc(-15, -50 + stomp, 3, 0, Math.PI * 2);
+                    ctx.arc(15, -50 + stomp, 3, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.restore();
+                    return;
+                }
+
+                ctx.translate(this.x, centerY + walkCycle);
+
+                // Regular Zombie Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.25)';
+                ctx.beginPath();
+                ctx.ellipse(0, 32, 18, 7, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (this.isUnderground && this.undergroundTimer > 0) {
+                    ctx.fillStyle = '#78350f';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 25, 22, 10, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                    return;
+                }
+
+                if (this.isFlying) {
+                    ctx.beginPath();
+                    ctx.arc(0, -75, 20, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(0, -55);
+                    ctx.lineTo(0, -25);
+                    ctx.strokeStyle = '#fef08a';
+                    ctx.stroke();
+                }
+
+                // Zombie Body
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(-6, 10);
+                ctx.lineTo(-10 + walkCycle, 30);
+                ctx.moveTo(6, 10);
+                ctx.lineTo(10 - walkCycle, 30);
+                ctx.stroke();
+
+                ctx.fillStyle = '#3f6212';
+                ctx.fillRect(-14, -20, 28, 32);
+
+                ctx.fillStyle = '#65a30d';
+                ctx.beginPath();
+                ctx.arc(0, -32, 16, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Eyes
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(-5, -35, 4, 0, Math.PI * 2);
+                ctx.arc(5, -35, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Accessories
+                if (this.type === 'cone' && this.hp > 1) {
+                    ctx.fillStyle = '#f97316';
+                    ctx.beginPath();
+                    ctx.moveTo(-14, -42);
+                    ctx.lineTo(14, -42);
+                    ctx.lineTo(0, -70);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (this.type === 'bucket' && this.hp > 1) {
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillRect(-15, -56, 30, 20);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class Pea {
+            constructor(x, y, row, env) {
+                this.x = x;
+                this.y = y;
+                this.row = row;
+                this.env = env;
+                this.speed = 8;
+                this.damage = 1;
+            }
+
+            update() {
+                this.x += this.speed;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+
+                if (this.env === 'volcan') ctx.fillStyle = '#f97316';
+                else if (this.env === 'espacio' || this.env === 'area51') ctx.fillStyle = '#f43f5e';
+                else if (this.env === 'piscina') ctx.fillStyle = '#38bdf8';
+                else ctx.fillStyle = '#86efac';
+
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#15803d';
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        class LawnRenderer {
+            static drawEnvironment(ctx, width, height, env) {
+                const laneH = height / 3;
+
+                switch(env) {
+                    case 'noche':
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = '#1e1b4b';
+                        for (let r = 0; r < 3; r++) {
+                            if (r % 2 === 0) ctx.fillRect(0, r * laneH, width, laneH);
+                        }
+                        break;
+
+                    case 'piscina':
+                        ctx.fillStyle = '#15803d';
+                        ctx.fillRect(0, 0, width, laneH);
+                        ctx.fillRect(0, laneH * 2, width, laneH);
+                        ctx.fillStyle = '#0284c7';
+                        ctx.fillRect(0, laneH, width, laneH);
+                        break;
+
+                    case 'desierto':
+                        ctx.fillStyle = '#d97706';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = '#b45309';
+                        for (let r = 0; r < 3; r++) {
+                            if (r % 2 === 0) ctx.fillRect(0, r * laneH, width, laneH);
+                        }
+                        break;
+
+                    case 'tejado':
+                        ctx.fillStyle = '#c2410c';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.strokeStyle = '#7c2d12';
+                        ctx.lineWidth = 3;
+                        for (let i = 0; i < width; i += 40) {
+                            ctx.beginPath();
+                            ctx.moveTo(i, 0);
+                            ctx.lineTo(i, height);
+                            ctx.stroke();
+                        }
+                        break;
+
+                    case 'bunker':
+                        ctx.fillStyle = '#334155';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = '#1e293b';
+                        for (let r = 0; r < 3; r++) {
+                            if (r % 2 === 0) ctx.fillRect(0, r * laneH, width, laneH);
+                        }
+                        break;
+
+                    case 'colegio':
+                        ctx.fillStyle = '#78350f';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = '#451a03';
+                        for (let r = 0; r < 3; r++) {
+                            if (r % 2 === 0) ctx.fillRect(0, r * laneH, width, laneH);
+                        }
+                        break;
+
+                    case 'laboratorio':
+                        ctx.fillStyle = '#0284c7';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = '#0f172a';
+                        for (let r = 0; r < 3; r++) {
+                            ctx.fillRect(0, r * laneH + 4, width, laneH - 8);
+                        }
+                        break;
+
+                    case 'area51':
+                        ctx.fillStyle = '#581c87';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = '#3b0764';
+                        for (let r = 0; r < 3; r++) {
+                            if (r % 2 === 0) ctx.fillRect(0, r * laneH, width, laneH);
+                        }
+                        break;
+
+                    case 'espacio':
+                        ctx.fillStyle = '#030712';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = 'white';
+                        for (let i = 0; i < 40; i++) {
+                            ctx.fillRect((i * 37) % width, (i * 53) % height, 2, 2);
+                        }
+                        break;
+
+                    case 'volcan':
+                        ctx.fillStyle = '#451a03';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = '#ea580c';
+                        for (let r = 0; r < 3; r++) {
+                            if (r % 2 === 0) ctx.fillRect(0, r * laneH + 10, width, laneH - 20);
+                        }
+                        break;
+
+                    case 'castillo':
+                    case 'boss_arena':
+                        ctx.fillStyle = '#18181b';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = '#27272a';
+                        for (let r = 0; r < 3; r++) {
+                            if (r % 2 === 0) ctx.fillRect(0, r * laneH, width, laneH);
+                        }
+                        break;
+
+                    default: // Jardín
+                        ctx.fillStyle = '#15803d';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = '#166534';
+                        for (let r = 0; r < 3; r++) {
+                            if (r % 2 === 0) ctx.fillRect(0, r * laneH, width, laneH);
+                        }
+                        break;
+                }
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, laneH);
+                ctx.lineTo(width, laneH);
+                ctx.moveTo(0, laneH * 2);
+                ctx.lineTo(width, laneH * 2);
+                ctx.stroke();
+            }
+        }
+
+        class GameEngine {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                this.currentLevelIdx = 0;
+                this.score = 0;
+                this.defeatsInLevel = 0;
+                this.spawnTimer = 0;
+                
+                this.plants = [];
+                this.zombies = [];
+                this.peas = [];
+                
+                this.currentProblem = null;
+                this.gameRunning = false;
+                this.modalMode = 'intro';
+                
+                this.setupCanvas();
+                this.bindEvents();
+                
+                window.addEventListener('resize', () => this.setupCanvas());
+            }
+
+            setupCanvas() {
+                this.canvas.width = this.canvas.parentElement.clientWidth;
+                this.canvas.height = this.canvas.parentElement.clientHeight;
+            }
+
+            bindEvents() {
+                document.getElementById('btn-submit').addEventListener('click', () => this.checkAnswer());
+                document.getElementById('story-next-btn').addEventListener('click', () => this.handleStoryModalNext());
+                document.getElementById('btn-restart-level').addEventListener('click', () => this.restartLevel());
+                document.getElementById('btn-restart-game').addEventListener('click', () => this.restartGame());
+                
+                document.getElementById('btn-submit-score').addEventListener('click', () => this.submitPlayerScore());
+                
+                document.getElementById('btn-music-toggle').addEventListener('click', () => {
+                    const muted = sfx.toggleBGM();
+                    document.getElementById('music-icon').innerText = muted ? '🔇' : '🎵';
+                });
+
+                const handleEnter = (e) => { if (e.key === 'Enter') this.checkAnswer(); };
+                document.getElementById('input-num').addEventListener('keyup', handleEnter);
+                document.getElementById('input-den').addEventListener('keyup', handleEnter);
+            }
+
+            start() {
+                this.initLevel(0);
+                this.gameLoop(0);
+            }
+
+            initLevel(idx) {
+                this.currentLevelIdx = idx;
+                const levelData = LEVELS[idx];
+                
+                this.defeatsInLevel = 0;
+                this.zombies = [];
+                this.peas = [];
+                this.spawnTimer = 0;
+
+                // Initial setup: 3 defensive plants in column 0
+                this.plants = [
+                    new Plant(0, 0, levelData.env),
+                    new Plant(1, 0, levelData.env),
+                    new Plant(2, 0, levelData.env)
+                ];
+
+                document.getElementById('hud-level').innerText = `${levelData.level} / ${LEVELS.length}`;
+                document.getElementById('hud-env-badge').innerText = levelData.envName;
+                document.getElementById('hud-level-title').innerText = levelData.title;
+                document.getElementById('hud-level-subtitle').innerText = levelData.subtitle;
+                this.updateProgressHUD();
+
+                const bossContainer = document.getElementById('boss-health-container');
+                if (levelData.isBoss) {
+                    bossContainer.classList.remove('hidden');
+                    this.zombies.push(new Zombie(1, 'boss', levelData.zombieSpeedMult, this.canvas.width));
+                } else {
+                    bossContainer.classList.add('hidden');
+                }
+
+                this.showStoryModal(levelData.introSpeaker, levelData.introText, 'intro');
+                this.nextQuestion();
+            }
+
+            showStoryModal(speaker, text, mode = 'intro') {
+                this.gameRunning = false;
+                this.modalMode = mode;
+                const modal = document.getElementById('story-modal');
+                document.getElementById('story-avatar').innerHTML = renderAvatar(speaker);
+                document.getElementById('story-speaker-name').innerText = speaker === 'pepe' ? 'Pepe Loco' : 'Dr. Zomboss';
+                document.getElementById('story-level-badge').innerText = `Nivel ${LEVELS[this.currentLevelIdx].level}`;
+                document.getElementById('story-text').innerText = text;
+                modal.classList.remove('hidden');
+            }
+
+            handleStoryModalNext() {
+                sfx.startBGM();
+                document.getElementById('story-modal').classList.add('hidden');
+                if (this.modalMode === 'intro') {
+                    this.gameRunning = true;
+                } else if (this.modalMode === 'outro') {
+                    if (this.currentLevelIdx + 1 < LEVELS.length) {
+                        this.initLevel(this.currentLevelIdx + 1);
+                    } else {
+                        this.showVictoryLeaderboard();
+                    }
+                }
+            }
+
+            showVictoryLeaderboard() {
+                document.getElementById('win-final-score').innerText = this.score;
+                document.getElementById('submit-score-container').classList.remove('hidden');
+                document.getElementById('score-submitted-msg').classList.add('hidden');
+                document.getElementById('btn-submit-score').disabled = false;
+                document.getElementById('player-name-input').value = '';
+
+                document.getElementById('game-win-modal').classList.remove('hidden');
+
+                if (window.LeaderboardService) {
+                    window.LeaderboardService.listenLeaderboard((topScores) => {
+                        this.renderLeaderboardTable(topScores);
+                    });
+                }
+            }
+
+            renderLeaderboardTable(scores) {
+                const tbody = document.getElementById('leaderboard-table-body');
+                if (!scores || scores.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" class="text-center py-3 text-yellow-300/60">No hay puntuaciones registradas aún. ¡Sé el primero!</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = scores.map((s, idx) => {
+                    const rankMedal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `${idx + 1}`));
+                    const highlightClass = idx === 0 ? 'text-yellow-300 font-bold' : '';
+                    return `<tr class="hover:bg-amber-900/40 transition">
+                        <td class="py-1.5 pl-2 font-bold ${highlightClass}">${rankMedal}</td>
+                        <td class="py-1.5 truncate max-w-[130px] ${highlightClass}">${this.escapeHtml(s.name)}</td>
+                        <td class="py-1.5 pr-2 text-right font-black text-emerald-400">${s.score}</td>
+                    </tr>`;
+                }).join('');
+            }
+
+            escapeHtml(str) {
+                return (str || '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
+            }
+
+            async submitPlayerScore() {
+                const nameInput = document.getElementById('player-name-input');
+                const name = nameInput.value.trim();
+                
+                if (!name) {
+                    nameInput.focus();
+                    nameInput.classList.add('ring-2', 'ring-red-500');
+                    setTimeout(() => nameInput.classList.remove('ring-2', 'ring-red-500'), 1000);
+                    return;
+                }
+
+                document.getElementById('btn-submit-score').disabled = true;
+
+                if (window.LeaderboardService) {
+                    await window.LeaderboardService.submitScore(name, this.score);
+                }
+
+                document.getElementById('submit-score-container').classList.add('hidden');
+                document.getElementById('score-submitted-msg').classList.remove('hidden');
+            }
+                }
+            }
+
+            nextQuestion() {
+                const levelData = LEVELS[this.currentLevelIdx];
+                this.currentProblem = MathGenerator.generate(levelData.mathType);
+                
+                const container = document.getElementById('math-problem-container');
+                container.innerHTML = this.currentProblem.text;
+
+                document.getElementById('input-num').value = '';
+                document.getElementById('input-den').value = '';
+                document.getElementById('input-num').focus();
+            }
+
+            checkAnswer() {
+                if (!this.gameRunning || !this.currentProblem) return;
+
+                let userNum = parseInt(document.getElementById('input-num').value);
+                let userDen = parseInt(document.getElementById('input-den').value);
+
+                if (isNaN(userNum) || isNaN(userDen) || userDen === 0) return;
+
+                const userSimple = MathGenerator.simplify(userNum, userDen);
+
+                if (userSimple.num === this.currentProblem.ansNum && userSimple.den === this.currentProblem.ansDen) {
+                    // CORRECT ANSWER!
+                    sfx.playCorrect();
+                    this.score += 200;
+                    document.getElementById('hud-score').innerText = this.score;
+
+                    const levelData = LEVELS[this.currentLevelIdx];
+
+                    if (levelData.isBoss) {
+                        // Boss Level logic: Knock back Zomboss mech & take damage!
+                        const boss = this.zombies.find(z => z.type === 'boss');
+                        if (boss) {
+                            boss.x = Math.min(this.canvas.width - 120, boss.x + 90); // Push back boss
+                            boss.hp -= 18;
+                            const hpPct = Math.max(0, (boss.hp / boss.maxHp) * 100);
+                            document.getElementById('boss-hp-bar').style.width = `${hpPct}%`;
+                            document.getElementById('boss-hp-text').innerText = `${Math.max(0, boss.hp)} / ${boss.maxHp}`;
+                        }
+                    }
+
+                    // Spawn a new plant on the lawn upon correct answer!
+                    this.spawnRandomPlant();
+
+                    // Shoot peas from ALL active plants
+                    this.plants.forEach(plant => {
+                        const plantAreaWidth = this.canvas.width * 0.40;
+                        const slotWidth = plantAreaWidth / 5;
+                        const laneHeight = this.canvas.height / 3;
+                        const startX = (slotWidth * plant.col) + slotWidth * 0.8;
+                        const startY = (laneHeight * plant.row) + laneHeight / 2;
+                        this.peas.push(new Pea(startX, startY, plant.row, levelData.env));
+                    });
+
+                    sfx.playShoot();
+                    this.nextQuestion();
+                } else {
+                    // WRONG ANSWER!
+                    sfx.playWrong();
+                    
+                    // Visual error animation
+                    const controls = document.getElementById('controls-panel');
+                    controls.classList.add('shake-err');
+                    setTimeout(() => controls.classList.remove('shake-err'), 400);
+
+                    this.nextQuestion();
+                }
+            }
+
+            spawnRandomPlant() {
+                const levelData = LEVELS[this.currentLevelIdx];
+                let occupied = new Set(this.plants.map(p => `${p.row},${p.col}`));
+                
+                // Find all empty slots in 3x5 grid
+                let emptySlots = [];
+                for (let r = 0; r < 3; r++) {
+                    for (let c = 0; c < 5; c++) {
+                        if (!occupied.has(`${r},${c}`)) {
+                            emptySlots.push({ r, c });
+                        }
+                    }
+                }
+
+                if (emptySlots.length > 0) {
+                    // Pick a random empty slot to spawn plant
+                    const choice = emptySlots[Math.floor(Math.random() * emptySlots.length)];
+                    this.plants.push(new Plant(choice.r, choice.c, levelData.env));
+                } else {
+                    // If all slots full, upgrade a random plant
+                    let randomPlant = this.plants[Math.floor(Math.random() * this.plants.length)];
+                    if (randomPlant) randomPlant.upgrade();
+                }
+            }
+
+            spawnZombie() {
+                const levelData = LEVELS[this.currentLevelIdx];
+                const availableTypes = levelData.types;
+                const type = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+                const row = Math.floor(Math.random() * 3);
+
+                if (levelData.isBoss) {
+                    // Boss throws zombie out from the robot position
+                    const boss = this.zombies.find(z => z.type === 'boss');
+                    const spawnX = boss ? boss.x - 40 : this.canvas.width;
+                    const zombie = new Zombie(row, type, levelData.zombieSpeedMult, this.canvas.width);
+                    zombie.x = spawnX;
+                    this.zombies.push(zombie);
+                } else {
+                    this.zombies.push(new Zombie(row, type, levelData.zombieSpeedMult, this.canvas.width));
+                }
+            }
+
+            updateProgressHUD() {
+                const levelData = LEVELS[this.currentLevelIdx];
+                if (levelData.isBoss) {
+                    document.getElementById('hud-progress-text').innerText = `JEFE`;
+                    document.getElementById('hud-progress-bar').style.width = `100%`;
+                    return;
+                }
+                document.getElementById('hud-progress-text').innerText = `${this.defeatsInLevel}/${levelData.targetDefeats}`;
+                const pct = Math.min(100, (this.defeatsInLevel / levelData.targetDefeats) * 100);
+                document.getElementById('hud-progress-bar').style.width = `${pct}%`;
+            }
+
+            gameLoop(timestamp) {
+                if (this.gameRunning) {
+                    const levelData = LEVELS[this.currentLevelIdx];
+
+                    // Zombie Spawning Timer
+                    this.spawnTimer++;
+                    if (this.spawnTimer >= levelData.spawnRate) {
+                        this.spawnTimer = 0;
+                        this.spawnZombie();
+                    }
+
+                    // Update Peas
+                    this.peas.forEach(pea => pea.update());
+                    this.peas = this.peas.filter(pea => pea.x < this.canvas.width + 20);
+
+                    // Update Zombies
+                    this.zombies.forEach(zombie => zombie.update(this.canvas.width));
+
+                    // Zombie-Plant Collision: Zombies eat plants in front of them
+                    this.zombies.forEach(zombie => {
+                        if (zombie.type === 'boss') return; // Boss handles crushing separately
+
+                        let eating = false;
+                        const plantAreaWidth = this.canvas.width * 0.40;
+                        const slotWidth = plantAreaWidth / 5;
+
+                        for (let plant of this.plants) {
+                            if (plant.row === zombie.row) {
+                                const plantX = (slotWidth * plant.col) + slotWidth / 2;
+                                // If zombie reaches the plant's cell
+                                if (zombie.x <= plantX + 24 && zombie.x >= plantX - 12) {
+                                    eating = true;
+                                    plant.hp -= 0.55; // Zombie bites plant over time
+                                    if (Math.random() < 0.05) sfx.playChomp();
+                                    if (plant.hp <= 0) {
+                                        sfx.playCrush();
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        zombie.isEating = eating;
+                    });
+
+                    // Remove destroyed plants
+                    this.plants = this.plants.filter(plant => plant.hp > 0);
+
+                    // Boss Mechanics: Mech crushing plants when advancing over them!
+                    if (levelData.isBoss) {
+                        const boss = this.zombies.find(z => z.type === 'boss');
+                        if (boss) {
+                            const plantAreaWidth = this.canvas.width * 0.40;
+                            const slotWidth = plantAreaWidth / 5;
+
+                            this.plants = this.plants.filter(plant => {
+                                const plantX = (slotWidth * plant.col) + slotWidth;
+                                if (boss.x - 30 <= plantX) {
+                                    sfx.playCrush();
+                                    return false; // Plant is crushed by Dr. Zomboss robot!
+                                }
+                                return true;
+                            });
+                        }
+                    }
+
+                    // Check Pea-Zombie Collisions
+                    this.peas.forEach((pea) => {
+                        this.zombies.forEach((zombie) => {
+                            if (pea.row === zombie.row && Math.abs(pea.x - zombie.x) < 35) {
+                                zombie.hp -= pea.damage;
+                                pea.x = 9999; // Remove pea
+                                sfx.playHit();
+                                
+                                if (levelData.isBoss && zombie.type === 'boss') {
+                                    const hpPct = Math.max(0, (zombie.hp / zombie.maxHp) * 100);
+                                    document.getElementById('boss-hp-bar').style.width = `${hpPct}%`;
+                                    document.getElementById('boss-hp-text').innerText = `${Math.max(0, zombie.hp)} / ${zombie.maxHp}`;
+                                }
+                            }
+                        });
+                    });
+
+                    // Remove Dead Zombies
+                    this.zombies = this.zombies.filter(zombie => {
+                        if (zombie.hp <= 0) {
+                            if (zombie.type !== 'boss') {
+                                this.defeatsInLevel++;
+                                this.updateProgressHUD();
+                            }
+                            return false;
+                        }
+                        return true;
+                    });
+
+                    // GAME OVER RULE: You lose IF a zombie (or boss) crosses completely past the left edge of the lawn!
+                    this.zombies.forEach(zombie => {
+                        if (zombie.x < -30) {
+                            this.triggerGameOver();
+                        }
+                    });
+
+                    // Check Level Completion
+                    if (levelData.isBoss) {
+                        const boss = this.zombies.find(z => z.type === 'boss');
+                        if (!boss || boss.hp <= 0) {
+                            this.completeLevel();
+                        }
+                    } else if (this.defeatsInLevel >= levelData.targetDefeats) {
+                        this.completeLevel();
+                    }
+                }
+
+                this.render(timestamp);
+                requestAnimationFrame((ts) => this.gameLoop(ts));
+            }
+
+            render(timestamp) {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                const levelData = LEVELS[this.currentLevelIdx];
+                const laneHeight = this.canvas.height / 3;
+                const plantAreaWidth = this.canvas.width * 0.40;
+
+                // Render Environment background lawn
+                LawnRenderer.drawEnvironment(this.ctx, this.canvas.width, this.canvas.height, levelData.env);
+
+                // Render Plant Grid Slot outlines
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                this.ctx.lineWidth = 2;
+                for (let r = 0; r < 3; r++) {
+                    for (let c = 0; c < 5; c++) {
+                        const slotX = (plantAreaWidth / 5) * c;
+                        const slotY = laneHeight * r;
+                        this.ctx.strokeRect(slotX + 4, slotY + 4, (plantAreaWidth / 5) - 8, laneHeight - 8);
+                    }
+                }
+
+                // Render Active Plants
+                this.plants.forEach(plant => {
+                    const slotWidth = plantAreaWidth / 5;
+                    const x = slotWidth * plant.col;
+                    const y = laneHeight * plant.row;
+                    plant.draw(this.ctx, x, y, slotWidth, laneHeight, timestamp);
+                });
+
+                // Render Peas
+                this.peas.forEach(pea => pea.draw(this.ctx));
+
+                // Render Zombies (including Dr. Zomboss Mech)
+                this.zombies.forEach(zombie => zombie.draw(this.ctx, laneHeight * zombie.row, laneHeight, timestamp));
+            }
+
+            completeLevel() {
+                this.gameRunning = false;
+                const lvl = LEVELS[this.currentLevelIdx];
+                this.showStoryModal(lvl.outroSpeaker, lvl.outroText, 'outro');
+            }
+
+            triggerGameOver() {
+                this.gameRunning = false;
+                document.getElementById('game-over-modal').classList.remove('hidden');
+            }
+
+            restartLevel() {
+                document.getElementById('game-over-modal').classList.add('hidden');
+                this.initLevel(this.currentLevelIdx);
+            }
+
+            restartGame() {
+                document.getElementById('game-win-modal').classList.add('hidden');
+                this.score = 0;
+                this.plants = [];
+                this.initLevel(0);
+            }
+        }
+
+        window.onload = () => {
+            const game = new GameEngine();
+            game.start();
+        };
+    </script>
+</body>
+</html>
